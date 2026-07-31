@@ -1,0 +1,46 @@
+#!/bin/bash
+# Use sed for consistency and readability
+# shellcheck disable=SC2001
+
+set -o errexit -o nounset -o pipefail
+
+# Get name of the VPN interface from ifconfig output
+VPN_INTERFACE=$(ifconfig -u | awk -F ":" '/^u/ {interface_name=$1; next} /-->/ {print interface_name}')
+if [[ -z "$VPN_INTERFACE" ]]; then
+  echo "Could not detect VPN tunnel interface. The VPN may not be connected."
+  exit
+fi
+
+# Get existing packet filter NAT configuration for shared networking
+PF_SHARED_V4_NAT_CONF_OLD=$(pfctl -q -a com.apple.internet-sharing/shared_v4 -s nat 2>/dev/null)
+# Get name of active ethernet interface (WiFi, Thunderbolt, etc.) from NAT configuration
+ACTIVE_ETHERNET_INTERFACE=$(echo "$PF_SHARED_V4_NAT_CONF_OLD" | sed -n 's/^nat on \(.*\) inet from \(.*\)/\1/p;q')
+if [[ -z "$ACTIVE_ETHERNET_INTERFACE" ]]; then
+  echo "Could not detect VM-related NAT configuration. The Virtualization framework may not be running."
+  exit
+fi
+
+echo "Current packet filter NAT configuration for network sharing:"
+echo "$PF_SHARED_V4_NAT_CONF_OLD" | sed 's/^/│ /'
+echo
+
+# Adapt NAT configuration by replacing the default interface with the VPN interface
+PF_SHARED_V4_NAT_CONF_NEW=$(echo "$PF_SHARED_V4_NAT_CONF_OLD" | sed "s/$ACTIVE_ETHERNET_INTERFACE/$VPN_INTERFACE/g")
+if [[ "$PF_SHARED_V4_NAT_CONF_OLD" == "$PF_SHARED_V4_NAT_CONF_NEW" ]]; then
+  echo "No changes to apply. The script may have been run before."
+  exit
+fi
+
+echo "New packet filter NAT configuration for network sharing:"
+echo "$PF_SHARED_V4_NAT_CONF_NEW" | sed 's/^/│ /'
+echo
+
+# Try to parse the new PF NAT configuration before actually applying it
+if ! echo "$PF_SHARED_V4_NAT_CONF_NEW" | pfctl -a com.apple.internet-sharing/shared_v4 -N -f- 2>/dev/null; then
+  echo "Unexpected failure. New packet filter configuration could not be applied."
+  exit 1
+fi
+
+# Apply the new PF NAT configuration
+echo "$PF_SHARED_V4_NAT_CONF_NEW" | pfctl -a com.apple.internet-sharing/shared_v4 -N -f- 2>/dev/null
+echo "New configuration was successfully applied."

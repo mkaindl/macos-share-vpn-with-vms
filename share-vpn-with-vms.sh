@@ -13,10 +13,16 @@ if [[ $EUID -ne 0 ]]; then
   fail "Must be run as root, e.g. via sudo."
 fi
 
-# Get name of the VPN interface from ifconfig output
-VPN_INTERFACE=$(ifconfig -u | awk -F ":" '/^u/ {interface_name=$1; next} /-->/ {print interface_name}')
+# VPN tunnels are utun interfaces with a point-to-point IPv4 address ("inet <local> --> <remote>")
+VPN_INTERFACE=$(ifconfig -u | awk '
+  /^[^ \t]/ { interface_name = $1; sub(/:$/, "", interface_name) }
+  $1 == "inet" && $3 == "-->" && interface_name ~ /^utun/ { print interface_name }
+' | sort -u)
 if [[ -z "$VPN_INTERFACE" ]]; then
   fail "Could not detect VPN tunnel interface. The VPN may not be connected."
+fi
+if [[ "$VPN_INTERFACE" == *$'\n'* ]]; then
+  fail "Detected multiple VPN tunnel interfaces: ${VPN_INTERFACE//$'\n'/ }"
 fi
 
 # Get existing packet filter NAT configuration for shared networking

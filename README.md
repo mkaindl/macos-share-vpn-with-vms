@@ -15,6 +15,7 @@ Limitations:
 
 * Assumes a full-tunnel VPN: all VM traffic is NAT'd onto the tunnel.
 * IPv4 only.
+* Exactly one VPN tunnel (`utun` interface with a point-to-point IPv4 address) must be connected.
 
 ## Background
 

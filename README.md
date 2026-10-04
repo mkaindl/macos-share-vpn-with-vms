@@ -11,11 +11,18 @@ Re-run if required, e.g. after VM start/stop or VPN reconnect.
 sudo ./share-vpn-with-vms.sh
 ```
 
+The script handles:
+
+* multiple running VMs
+* uplink interfaces other than Wi-Fi, e.g. Ethernet or USB tethering
+* split-tunnel and full-tunnel VPNs: VM traffic is translated on whichever interface it leaves through
+
 Limitations:
 
-* Assumes a full-tunnel VPN: all VM traffic is NAT'd onto the tunnel.
 * IPv4 only.
 * Exactly one VPN tunnel (`utun` interface with a point-to-point IPv4 address) must be connected.
+
+To undo the changes, restart the VM(s).
 
 ## Background
 
@@ -28,7 +35,3 @@ Debugged this issue by capturing traffic on the tunnel interface:
 * https://github.com/NikushaKalatozi/MacOS-Big-Sur-Sharing-Host-VPN-with-Guest/blob/main/vpn_tunnel.sh
 * https://github.com/utmapp/UTM/issues/3238#issuecomment-1328338033
 * https://github.com/cirruslabs/tart/issues/384#issuecomment-1418942546
-
-This script also covers the following edge cases:
-* Multiple VMs are running
-* A non-default Ethernet interface is used (e.g. USB Tethering)

@@ -9,6 +9,10 @@ fail() {
   exit 1
 }
 
+if [[ $EUID -ne 0 ]]; then
+  fail "Must be run as root, e.g. via sudo."
+fi
+
 # Get name of the VPN interface from ifconfig output
 VPN_INTERFACE=$(ifconfig -u | awk -F ":" '/^u/ {interface_name=$1; next} /-->/ {print interface_name}')
 if [[ -z "$VPN_INTERFACE" ]]; then

@@ -4,6 +4,8 @@
 
 set -o errexit -o nounset -o pipefail
 
+PF_ANCHOR=com.apple.internet-sharing/shared_v4
+
 fail() {
   echo "$*" >&2
   exit 1
@@ -26,7 +28,7 @@ if [[ "$VPN_INTERFACE" == *$'\n'* ]]; then
 fi
 
 # Get existing packet filter NAT configuration for shared networking
-PF_SHARED_V4_NAT_CONF_OLD=$(pfctl -q -a com.apple.internet-sharing/shared_v4 -s nat 2>/dev/null)
+PF_SHARED_V4_NAT_CONF_OLD=$(pfctl -q -a "$PF_ANCHOR" -s nat 2>/dev/null)
 # Get name of active ethernet interface (WiFi, Thunderbolt, etc.) from NAT configuration
 ACTIVE_ETHERNET_INTERFACE=$(echo "$PF_SHARED_V4_NAT_CONF_OLD" | sed -n 's/^nat on \(.*\) inet from \(.*\)/\1/p;q')
 if [[ -z "$ACTIVE_ETHERNET_INTERFACE" ]]; then
@@ -48,11 +50,8 @@ echo "New packet filter NAT configuration for network sharing:"
 echo "$PF_SHARED_V4_NAT_CONF_NEW" | sed 's/^/│ /'
 echo
 
-# Try to parse the new PF NAT configuration before actually applying it
-if ! echo "$PF_SHARED_V4_NAT_CONF_NEW" | pfctl -a com.apple.internet-sharing/shared_v4 -N -f- 2>/dev/null; then
-  fail "Unexpected failure. New packet filter configuration could not be applied."
+# pfctl parses the complete ruleset before loading it, so an invalid ruleset leaves the current one in place
+if ! PFCTL_OUTPUT=$(echo "$PF_SHARED_V4_NAT_CONF_NEW" | pfctl -a "$PF_ANCHOR" -N -f- 2>&1); then
+  fail "New packet filter configuration could not be applied:"$'\n'"$PFCTL_OUTPUT"
 fi
-
-# Apply the new PF NAT configuration
-echo "$PF_SHARED_V4_NAT_CONF_NEW" | pfctl -a com.apple.internet-sharing/shared_v4 -N -f- 2>/dev/null
 echo "New configuration was successfully applied."

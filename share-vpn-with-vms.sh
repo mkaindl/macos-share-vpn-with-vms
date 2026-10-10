@@ -1,6 +1,4 @@
 #!/bin/bash
-# Use sed for consistency and readability
-# shellcheck disable=SC2001
 
 set -o errexit -o nounset -o pipefail
 
@@ -9,6 +7,12 @@ PF_ANCHOR=com.apple.internet-sharing/shared_v4
 fail() {
   echo "$*" >&2
   exit 1
+}
+
+# Parameter expansion cannot prefix every line of a multi-line string
+print_rules() {
+  # shellcheck disable=SC2001
+  sed 's/^/│ /' <<<"$1"
 }
 
 if [[ $EUID -ne 0 ]]; then
@@ -33,7 +37,7 @@ if ! grep -q '^nat on ' <<<"$PF_NAT_RULES_OLD"; then
 fi
 
 echo "Current packet filter NAT configuration for network sharing:"
-echo "$PF_NAT_RULES_OLD" | sed 's/^/│ /'
+print_rules "$PF_NAT_RULES_OLD"
 echo
 
 # Add a copy of each uplink NAT rule for the VPN interface. pf applies a "nat on <interface>" rule only to packets
@@ -65,7 +69,7 @@ if [[ "$PF_NAT_RULES_OLD" == "$PF_NAT_RULES_NEW" ]]; then
 fi
 
 echo "New packet filter NAT configuration for network sharing:"
-echo "$PF_NAT_RULES_NEW" | sed 's/^/│ /'
+print_rules "$PF_NAT_RULES_NEW"
 echo
 
 # pfctl parses the complete ruleset before loading it, so an invalid ruleset leaves the current one in place

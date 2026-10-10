@@ -2,6 +2,14 @@
 
 Give Virtualization framework VMs with NAT networking on macOS access to the host's VPN.
 
+## Symptom
+
+On a Mac connected to a VPN, VMs with NAT networking can not reach hosts behind the VPN.
+
+This affects all VMs whose NAT network is provided by macOS Internet Sharing, e.g.:
+* UTM with the Apple Virtualization
+* Apple container
+
 ## Usage
 
 Run the script once the VPN is connected *and* at least one VM is running.
@@ -13,16 +21,14 @@ sudo ./share-vpn-with-vms.sh
 
 The script handles:
 
-* multiple running VMs
-* uplink interfaces other than Wi-Fi, e.g. Ethernet or USB tethering
-* split-tunnel and full-tunnel VPNs: VM traffic is translated on whichever interface it leaves through
+* Multiple running VMs
+* Uplink interfaces other than Wi-Fi, e.g. Ethernet or USB tethering
+* Split-tunnel and full-tunnel VPNs (VM traffic is translated on whichever interface it leaves through)
 
 Limitations:
 
-* IPv4 only.
-* Exactly one VPN tunnel (`utun` interface with a point-to-point IPv4 address) must be connected.
-
-macOS discards the changes when it regenerates the NAT rules, e.g. on a VM restart.
+* IPv4 only
+* Exactly one VPN tunnel (`utun` interface with a point-to-point IPv4 address) must be connected
 
 ## Background
 
@@ -33,6 +39,8 @@ When the first VM starts, macOS Internet Sharing enables the packet filter (pf) 
 nat on en0 inet from 192.168.64.0/24 to any -> (en0:0) extfilter ei
 no nat on bridge100 inet from 192.168.64.1 to 192.168.64.0/24
 ```
+
+(The rules can be listed via `sudo pfctl -a com.apple.internet-sharing/shared_v4 -s nat`.)
 
 A `nat on <interface>` rule only translates packets leaving through that interface (see `man pf.conf`).
 Internet Sharing creates these rules only for interfaces with a default route via a gateway, such as the uplink `en0`.
